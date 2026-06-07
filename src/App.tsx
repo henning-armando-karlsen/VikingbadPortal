@@ -17,6 +17,8 @@ export default function App() {
     () => (localStorage.getItem('vbView') as PortalSlot) || 'analyse'
   );
   const [showUpload, setShowUpload] = useState(false);
+  const [datasetLz, setDatasetLz] = useState('');
+  const [kundeloggLz, setKundeloggLz] = useState('');
   const analyseIframeRef = useRef<HTMLIFrameElement>(null);
   const crmIframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -26,8 +28,8 @@ export default function App() {
       key: import.meta.env.VITE_SUPABASE_ANON_KEY,
     });
     const esc = (s: string) => JSON.stringify(s || '').replace(/</g, '\\u003c');
-    const ds = localStorage.getItem('vbDataset2') || '';
-    const kl = localStorage.getItem('vbKundelogg') || '';
+    const ds = datasetLz || localStorage.getItem('vbDataset2') || '';
+    const kl = kundeloggLz || localStorage.getItem('vbKundelogg') || '';
     return `<script>window.__VB_CFG__=${cfg};window.__VB_DATASET__=${esc(ds)};window.__VB_KUNDELOGG__=${esc(kl)};</script>`;
   })();
 
@@ -85,6 +87,7 @@ export default function App() {
 
     if (data?.payload_lz) {
       localStorage.setItem('vbDataset2', data.payload_lz);
+      setDatasetLz(data.payload_lz);
       setPeriodLabel(data.period_label ?? null);
     }
     setDatasetReady(true);
@@ -143,6 +146,7 @@ export default function App() {
       .maybeSingle();
     if (data?.payload_lz) {
       localStorage.setItem('vbKundelogg', data.payload_lz);
+      setKundeloggLz(data.payload_lz);
     }
   }
 
@@ -161,6 +165,7 @@ export default function App() {
 
   function handleUploadSuccess(lz: string, label: string) {
     localStorage.setItem('vbDataset2', lz);
+    setDatasetLz(lz);
     setPeriodLabel(label);
     setShowUpload(false);
     setTimeout(reloadAnalyse, 100);
