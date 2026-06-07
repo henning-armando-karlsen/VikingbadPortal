@@ -20,13 +20,16 @@ export default function App() {
   const analyseIframeRef = useRef<HTMLIFrameElement>(null);
   const crmIframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Supabase-konfig som injiseres i CRM-iframen, slik at CRM-en kan lese/skrive
-  // oppgaver og besøk direkte mot Supabase med innlogget brukers økt (samme origin).
-  const crmHeadInject =
-    `<script>window.__VB_CFG__=${JSON.stringify({
+  const crmHeadInject = (() => {
+    const cfg = JSON.stringify({
       url: import.meta.env.VITE_SUPABASE_URL,
       key: import.meta.env.VITE_SUPABASE_ANON_KEY,
-    })};</script>`;
+    });
+    const esc = (s: string) => JSON.stringify(s || '').replace(/</g, '\\u003c');
+    const ds = localStorage.getItem('vbDataset2') || '';
+    const kl = localStorage.getItem('vbKundelogg') || '';
+    return `<script>window.__VB_CFG__=${cfg};window.__VB_DATASET__=${esc(ds)};window.__VB_KUNDELOGG__=${esc(kl)};</script>`;
+  })();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
