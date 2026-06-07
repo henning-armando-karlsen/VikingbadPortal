@@ -111,11 +111,11 @@ export default function TopBar({
   return (
     <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 gap-4 flex-shrink-0">
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        </div>
+        <svg viewBox="0 0 226.77 226.77" fill="currentColor" aria-hidden="true" className="w-7 h-7 text-[#252525] flex-shrink-0">
+          <polygon points="132.19 54.15 113.37 37.67 94.58 54.15 113.37 93.5 132.19 54.15" />
+          <polygon points="113.39 157.78 74.73 77.07 54.88 77.07 104.06 182.81 104.24 182.81 122.53 182.81 122.71 182.81 171.89 77.07 152.04 77.07 113.39 157.78" />
+          <path d="m113.39,0C50.86,0,0,50.86,0,113.39s50.86,113.39,113.39,113.39,113.39-50.86,113.39-113.39S175.91,0,113.39,0Zm0,223.54c-60.74,0-110.15-49.41-110.15-110.15S52.65,3.23,113.39,3.23s110.15,49.41,110.15,110.15-49.41,110.15-110.15,110.15Z" />
+        </svg>
         <span className="hidden md:inline font-semibold text-gray-900 text-sm whitespace-nowrap">
           Vikingbad
         </span>
