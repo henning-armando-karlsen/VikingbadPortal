@@ -13,4 +13,4 @@ export type Profile = {
 };
 
 /** Hvilken HTML-applikasjon en portal_html-rad tilhører. */
-export type PortalSlot = 'analyse' | 'crm';
+export type PortalSlot = 'analyse' | 'crm' | 'modell';

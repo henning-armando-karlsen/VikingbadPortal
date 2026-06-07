@@ -13,6 +13,7 @@ export default function App() {
   const [datasetReady, setDatasetReady] = useState(false);
   const [analyseHtml, setAnalyseHtml] = useState<string | null | undefined>(undefined);
   const [crmHtml, setCrmHtml] = useState<string | null | undefined>(undefined);
+  const [modellHtml, setModellHtml] = useState<string | null | undefined>(undefined);
   const [view, setView] = useState<PortalSlot>(
     () => (localStorage.getItem('vbView') as PortalSlot) || 'analyse'
   );
@@ -21,6 +22,7 @@ export default function App() {
   const [kundeloggLz, setKundeloggLz] = useState('');
   const analyseIframeRef = useRef<HTMLIFrameElement>(null);
   const crmIframeRef = useRef<HTMLIFrameElement>(null);
+  const modellIframeRef = useRef<HTMLIFrameElement>(null);
 
   const crmHeadInject = (() => {
     const cfg = JSON.stringify({
@@ -54,6 +56,7 @@ export default function App() {
       setDatasetReady(false);
       setAnalyseHtml(undefined);
       setCrmHtml(undefined);
+      setModellHtml(undefined);
       return;
     }
     loadProfile(session.user.id);
@@ -61,6 +64,7 @@ export default function App() {
     loadKundelogg();
     loadHtml('analyse');
     loadCrm();
+    loadModell();
   }, [session?.user.id]);
 
   function selectView(v: PortalSlot) {
@@ -106,11 +110,6 @@ export default function App() {
     setAnalyseHtml(data?.html ?? null);
   }
 
-  /**
-   * Henter nyeste CRM-HTML fra databasen. Finnes ingen opplastet versjon,
-   * faller vi tilbake til den medfølgende prototypen i public/crm.html slik
-   * at CRM-en alltid er tilgjengelig.
-   */
   async function loadCrm() {
     const { data } = await supabase
       .from('portal_html')
@@ -130,6 +129,25 @@ export default function App() {
       setCrmHtml(res.ok ? await res.text() : null);
     } catch {
       setCrmHtml(null);
+    }
+  }
+
+  async function loadModell() {
+    const { data } = await supabase
+      .from('portal_html')
+      .select('html')
+      .eq('slot', 'modell')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (data?.html) { setModellHtml(data.html); return; }
+
+    try {
+      const res = await fetch('/betjeningsmodell.html', { cache: 'no-cache' });
+      setModellHtml(res.ok ? await res.text() : null);
+    } catch {
+      setModellHtml(null);
     }
   }
 
@@ -174,6 +192,7 @@ export default function App() {
 
   async function handlePortalUploaded(slot: PortalSlot) {
     if (slot === 'crm') await loadCrm();
+    else if (slot === 'modell') await loadModell();
     else await loadHtml('analyse');
   }
 
@@ -224,6 +243,13 @@ export default function App() {
           hidden={view !== 'crm'}
           headInject={crmHeadInject}
           emptyHint="Admin kan laste opp CRM-en (HTML) via topplinjen."
+        />
+        <PortalFrame
+          ref={modellIframeRef}
+          ready={true}
+          html={modellHtml}
+          hidden={view !== 'modell'}
+          emptyHint="Legg betjeningsmodell.html i public/ (eller last opp via topplinjen)."
         />
       </div>
 

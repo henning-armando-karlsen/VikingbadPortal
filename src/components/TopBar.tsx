@@ -19,6 +19,7 @@ type Props = {
 const SLOT_LABEL: Record<PortalSlot, string> = {
   analyse: 'Analyseportal',
   crm: 'CRM',
+  modell: 'Betjeningsmodell',
 };
 
 export default function TopBar({
@@ -121,7 +122,7 @@ export default function TopBar({
         </span>
 
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5 ml-1">
-          {(['analyse', 'crm'] as PortalSlot[]).map((slot) => (
+          {(['analyse', 'crm', 'modell'] as PortalSlot[]).map((slot) => (
             <button
               key={slot}
               onClick={() => onViewChange(slot)}
