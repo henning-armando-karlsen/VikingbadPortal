@@ -196,6 +196,18 @@ export default function TopBar({
               CRM
             </button>
 
+            <button
+              onClick={() => triggerUpload('modell')}
+              disabled={portalStatus === 'uploading'}
+              title="Last opp ny betjeningsmodell (HTML)"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 text-xs font-medium px-3 py-1.5 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              Modell
+            </button>
+
             <input
               ref={kundeloggInputRef}
               type="file"
