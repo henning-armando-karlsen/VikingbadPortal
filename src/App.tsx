@@ -37,6 +37,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (datasetReady && crmHtml) {
+      const t = setTimeout(() => reloadCrm(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [datasetReady, crmHtml]);
+
+  useEffect(() => {
     if (!session) {
       setProfile(null);
       setDatasetReady(false);
