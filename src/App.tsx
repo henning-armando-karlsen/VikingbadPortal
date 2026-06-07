@@ -154,6 +154,7 @@ export default function App() {
     setPeriodLabel(label);
     setShowUpload(false);
     setTimeout(reloadAnalyse, 100);
+    setTimeout(reloadCrm, 100);
   }
 
   async function handlePortalUploaded(slot: PortalSlot) {
@@ -203,7 +204,7 @@ export default function App() {
         />
         <PortalFrame
           ref={crmIframeRef}
-          ready={true}
+          ready={datasetReady}
           html={crmHtml}
           hidden={view !== 'crm'}
           headInject={crmHeadInject}
