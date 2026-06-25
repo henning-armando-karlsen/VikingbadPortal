@@ -6,13 +6,14 @@ type PortalUploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
 type Props = {
   profile: Profile;
-  isAdmin: boolean;
+  caps: string[];
   periodLabel: string | null;
   view: PortalSlot;
   onViewChange: (v: PortalSlot) => void;
   onUploadClick: () => void;
   onPortalUploaded: (slot: PortalSlot) => void;
   onKundeloggUploaded: () => void;
+  onAdminClick: () => void;
   onLogout: () => void;
 };
 
@@ -24,13 +25,14 @@ const SLOT_LABEL: Record<PortalSlot, string> = {
 
 export default function TopBar({
   profile,
-  isAdmin,
+  caps,
   periodLabel,
   view,
   onViewChange,
   onUploadClick,
   onPortalUploaded,
   onKundeloggUploaded,
+  onAdminClick,
   onLogout,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,13 +41,20 @@ export default function TopBar({
   const [portalStatus, setPortalStatus] = useState<PortalUploadStatus>('idle');
   const [portalMsg, setPortalMsg] = useState('');
 
+  const canUploadPortal = caps.includes('portal.upload');
+  const canUploadKundelogg = caps.includes('kundelogg.upload');
+  const canUploadData = caps.includes('data.upload');
+  const canAdmin = caps.includes('admin.brukere');
+
+  const visibleSlots = (['analyse', 'crm', 'modell'] as PortalSlot[]).filter(
+    s => s !== 'crm' || caps.includes('crm.view')
+  );
+
   function triggerUpload(slot: PortalSlot) {
     pendingSlotRef.current = slot;
     fileInputRef.current?.click();
   }
 
-  /** Leser opplastet kundelogg.html, henter ut og rekomprimerer hendelsene,
-   *  lagrer dem sentralt i crm_kundelogg og legger dem i localStorage. */
   async function handleKundeloggFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -109,6 +118,8 @@ export default function TopBar({
     }
   }
 
+  const btnBase = 'hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 text-xs font-medium px-3 py-1.5 transition-colors';
+
   return (
     <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 gap-4 flex-shrink-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -122,7 +133,7 @@ export default function TopBar({
         </span>
 
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5 ml-1">
-          {(['analyse', 'crm', 'modell'] as PortalSlot[]).map((slot) => (
+          {visibleSlots.map((slot) => (
             <button
               key={slot}
               onClick={() => onViewChange(slot)}
@@ -163,7 +174,7 @@ export default function TopBar({
           {profile.full_name || profile.email}
         </span>
 
-        {isAdmin && (
+        {canUploadPortal && (
           <>
             <input
               ref={fileInputRef}
@@ -176,38 +187,40 @@ export default function TopBar({
               onClick={() => triggerUpload('analyse')}
               disabled={portalStatus === 'uploading'}
               title="Last opp ny analyseportal (HTML)"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 text-xs font-medium px-3 py-1.5 transition-colors"
+              className={btnBase}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
               Portal
             </button>
-
             <button
               onClick={() => triggerUpload('crm')}
               disabled={portalStatus === 'uploading'}
               title="Last opp ny CRM (HTML)"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 text-xs font-medium px-3 py-1.5 transition-colors"
+              className={btnBase}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
               CRM
             </button>
-
             <button
               onClick={() => triggerUpload('modell')}
               disabled={portalStatus === 'uploading'}
               title="Last opp ny betjeningsmodell (HTML)"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 text-xs font-medium px-3 py-1.5 transition-colors"
+              className={btnBase}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
               Modell
             </button>
+          </>
+        )}
 
+        {canUploadKundelogg && (
+          <>
             <input
               ref={kundeloggInputRef}
               type="file"
@@ -226,18 +239,33 @@ export default function TopBar({
               </svg>
               Kundelogg
             </button>
-
-            <button
-              onClick={onUploadClick}
-              title="Last opp nytt datasett (xlsx)"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              <span className="hidden sm:inline">Datasett</span>
-            </button>
           </>
+        )}
+
+        {canUploadData && (
+          <button
+            onClick={onUploadClick}
+            title="Last opp nytt datasett (xlsx)"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span className="hidden sm:inline">Datasett</span>
+          </button>
+        )}
+
+        {canAdmin && (
+          <button
+            onClick={onAdminClick}
+            title="Brukeradministrasjon"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <span className="hidden sm:inline">Admin</span>
+          </button>
         )}
 
         <button

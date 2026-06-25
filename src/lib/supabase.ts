@@ -9,7 +9,9 @@ export type Profile = {
   id: string;
   email: string | null;
   full_name: string | null;
-  role: 'sales' | 'admin';
+  role: string;
+  ra: string | null;
+  aktiv: boolean;
 };
 
 /** Hvilken HTML-applikasjon en portal_html-rad tilhører. */

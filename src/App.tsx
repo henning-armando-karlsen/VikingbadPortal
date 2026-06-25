@@ -5,10 +5,12 @@ import LoginForm from './components/LoginForm';
 import TopBar from './components/TopBar';
 import PortalFrame from './components/PortalFrame';
 import UploadModal from './components/UploadModal';
+import AdminPanel from './components/AdminPanel';
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [caps, setCaps] = useState<string[]>([]);
   const [periodLabel, setPeriodLabel] = useState<string | null>(null);
   const [datasetReady, setDatasetReady] = useState(false);
   const [analyseHtml, setAnalyseHtml] = useState<string | null | undefined>(undefined);
@@ -18,6 +20,7 @@ export default function App() {
     () => (localStorage.getItem('vbView') as PortalSlot) || 'analyse'
   );
   const [showUpload, setShowUpload] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [datasetLz, setDatasetLz] = useState('');
   const [kundeloggLz, setKundeloggLz] = useState('');
   const analyseIframeRef = useRef<HTMLIFrameElement>(null);
@@ -53,6 +56,7 @@ export default function App() {
   useEffect(() => {
     if (!session) {
       setProfile(null);
+      setCaps([]);
       setDatasetReady(false);
       setAnalyseHtml(undefined);
       setCrmHtml(undefined);
@@ -75,10 +79,18 @@ export default function App() {
   async function loadProfile(userId: string) {
     const { data } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role')
+      .select('id, email, full_name, role, ra, aktiv')
       .eq('id', userId)
       .single();
-    if (data) setProfile(data as Profile);
+    if (data) {
+      setProfile(data as Profile);
+      const { data: roleRow } = await supabase
+        .from('app_roles')
+        .select('capabilities')
+        .eq('role_key', data.role)
+        .maybeSingle();
+      setCaps((roleRow?.capabilities ?? []) as string[]);
+    }
   }
 
   async function loadDataset() {
@@ -97,7 +109,6 @@ export default function App() {
     setDatasetReady(true);
   }
 
-  /** Henter nyeste HTML for analyseportalen. */
   async function loadHtml(slot: 'analyse') {
     const { data } = await supabase
       .from('portal_html')
@@ -151,10 +162,6 @@ export default function App() {
     }
   }
 
-  /**
-   * Henter nyeste sentrale kundelogg og legger den i localStorage['vbKundelogg']
-   * (base64 LZString), som CRM-en leser ved innlasting. Sentral oppdatering.
-   */
   async function loadKundelogg() {
     const { data } = await supabase
       .from('crm_kundelogg')
@@ -210,20 +217,23 @@ export default function App() {
 
   if (!session) return <LoginForm />;
 
-  const isAdmin = profile?.role === 'admin';
+  // Fall back to 'analyse' if user is on 'crm' without the cap (only once caps are known)
+  const effectiveView: PortalSlot =
+    view === 'crm' && caps.length > 0 && !caps.includes('crm.view') ? 'analyse' : view;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
       {profile && (
         <TopBar
           profile={profile}
-          isAdmin={!!isAdmin}
+          caps={caps}
           periodLabel={periodLabel}
-          view={view}
+          view={effectiveView}
           onViewChange={selectView}
           onUploadClick={() => setShowUpload(true)}
           onPortalUploaded={handlePortalUploaded}
           onKundeloggUploaded={handleKundeloggUploaded}
+          onAdminClick={() => setShowAdmin(true)}
           onLogout={handleLogout}
         />
       )}
@@ -233,14 +243,14 @@ export default function App() {
           ref={analyseIframeRef}
           ready={datasetReady}
           html={analyseHtml}
-          hidden={view !== 'analyse'}
+          hidden={effectiveView !== 'analyse'}
           emptyHint="Admin kan laste opp analyseportalen (HTML) via topplinjen."
         />
         <PortalFrame
           ref={crmIframeRef}
           ready={datasetReady}
           html={crmHtml}
-          hidden={view !== 'crm'}
+          hidden={effectiveView !== 'crm'}
           headInject={crmHeadInject}
           emptyHint="Admin kan laste opp CRM-en (HTML) via topplinjen."
         />
@@ -248,7 +258,7 @@ export default function App() {
           ref={modellIframeRef}
           ready={true}
           html={modellHtml}
-          hidden={view !== 'modell'}
+          hidden={effectiveView !== 'modell'}
           emptyHint="Legg betjeningsmodell.html i public/ (eller last opp via topplinjen)."
         />
       </div>
@@ -258,6 +268,10 @@ export default function App() {
           onClose={() => setShowUpload(false)}
           onSuccess={handleUploadSuccess}
         />
+      )}
+
+      {showAdmin && (
+        <AdminPanel onClose={() => setShowAdmin(false)} />
       )}
     </div>
   );

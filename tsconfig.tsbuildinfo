@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/main.tsx","./src/recompute.js","./src/components/LoginForm.tsx","./src/components/PortalFrame.tsx","./src/components/TopBar.tsx","./src/components/UploadModal.tsx","./src/lib/recompute.js","./src/lib/supabase.ts"],"version":"5.9.3"}
+{"root":["./src/App.tsx","./src/main.tsx","./src/recompute.js","./src/components/AdminPanel.tsx","./src/components/LoginForm.tsx","./src/components/PortalFrame.tsx","./src/components/TopBar.tsx","./src/components/UploadModal.tsx","./src/lib/recompute.js","./src/lib/supabase.ts"],"version":"5.9.3"}
