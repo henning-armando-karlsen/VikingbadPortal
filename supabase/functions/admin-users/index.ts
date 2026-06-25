@@ -2,12 +2,24 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const RESEND_KEY = Deno.env.get("RESEND_API_KEY")!;
+const APP_URL = "https://vikingbadcrmportal.bolt.host";
+const FROM = "Vikingbad Salgsportal <no-reply@updates.compete.no>";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
 };
 const admin = createClient(SB_URL, SERVICE_KEY, { auth: { persistSession: false } });
+
+async function sendEmail(to: string, subject: string, html: string) {
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${RESEND_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({ from: FROM, to, subject, html }),
+  });
+  if (!r.ok) throw new Error(`Resend (${r.status}): ${(await r.text()).slice(0, 300)}`);
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: cors });
@@ -79,6 +91,41 @@ Deno.serve(async (req: Request) => {
         if (payload.id === u.user.id) return json({ error: "Du kan ikke slette din egen bruker" }, 400);
         const { error } = await admin.auth.admin.deleteUser(payload.id);
         if (error) throw error;
+        return json({ ok: true });
+      }
+      case "invite": {
+        const { email, full_name, role, ra } = payload;
+        if (!email) return json({ error: "E-post er påkrevd" }, 400);
+        const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
+          type: "invite", email, options: { redirectTo: APP_URL },
+        });
+        if (linkErr) throw linkErr;
+        const uid = link.user?.id;
+        if (uid) {
+          const { error: pErr } = await admin.from("profiles").upsert({
+            id: uid, email, full_name: full_name || "", role: role || "selger", ra: ra || null, aktiv: true,
+          }, { onConflict: "id" });
+          if (pErr) throw pErr;
+        }
+        await sendEmail(email, "Velkommen til Vikingbad Salgsportal",
+          `<p>Hei${full_name ? " " + full_name : ""},</p>
+           <p>Du har fått tilgang til Vikingbad Salgsportal. Klikk under for å sette ditt eget passord:</p>
+           <p><a href="${link.properties.action_link}" style="background:#252525;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Sett passord</a></p>
+           <p style="color:#6B6862;font-size:12px">Lenken er personlig. Ignorer e-posten hvis du ikke forventet den.</p>`);
+        return json({ ok: true });
+      }
+      case "send_reset": {
+        const { email } = payload;
+        if (!email) return json({ error: "E-post er påkrevd" }, 400);
+        const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
+          type: "recovery", email, options: { redirectTo: APP_URL },
+        });
+        if (linkErr) throw linkErr;
+        await sendEmail(email, "Nullstill passord – Vikingbad Salgsportal",
+          `<p>Hei,</p>
+           <p>Klikk under for å sette et nytt passord til Vikingbad Salgsportal:</p>
+           <p><a href="${link.properties.action_link}" style="background:#252525;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;display:inline-block">Sett nytt passord</a></p>
+           <p style="color:#6B6862;font-size:12px">Ignorer e-posten hvis du ikke ba om dette.</p>`);
         return json({ ok: true });
       }
       default:
