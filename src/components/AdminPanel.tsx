@@ -45,8 +45,12 @@ export default function AdminPanel({ onClose }: Props) {
   const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '', role: '', ra: '' });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [selfId, setSelfId] = useState<string | null>(null);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setSelfId(data.user?.id ?? null));
+    load();
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -131,6 +135,17 @@ export default function AdminPanel({ onClose }: Props) {
       patchRow(user.id, { rowError: e.message ?? String(e) });
     } finally {
       patchRow(user.id, { saving: false });
+    }
+  }
+
+  async function handleDelete(user: User) {
+    if (!window.confirm(`Slette ${user.email}? Dette kan ikke angres.`)) return;
+    patchRow(user.id, { saving: true, rowError: null });
+    try {
+      await callAdmin('delete', { id: user.id });
+      await load();
+    } catch (e: any) {
+      patchRow(user.id, { saving: false, rowError: e.message ?? String(e) });
     }
   }
 
@@ -326,6 +341,15 @@ export default function AdminPanel({ onClose }: Props) {
                                 >
                                   Sett passord
                                 </button>
+                                {user.id !== selfId && (
+                                  <button
+                                    onClick={() => handleDelete(user)}
+                                    disabled={edit.saving}
+                                    className={`${btnSm} bg-red-50 hover:bg-red-100 text-red-700 border border-red-200`}
+                                  >
+                                    Slett
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
