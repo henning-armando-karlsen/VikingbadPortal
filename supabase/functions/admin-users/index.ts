@@ -74,6 +74,13 @@ Deno.serve(async (req: Request) => {
         if (aErr) throw aErr;
         return json({ ok: true });
       }
+      case "delete": {
+        if (!payload.id) return json({ error: "id er påkrevd" }, 400);
+        if (payload.id === u.user.id) return json({ error: "Du kan ikke slette din egen bruker" }, 400);
+        const { error } = await admin.auth.admin.deleteUser(payload.id);
+        if (error) throw error;
+        return json({ ok: true });
+      }
       default:
         return json({ error: "Ukjent action" }, 400);
     }
