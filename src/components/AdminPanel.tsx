@@ -27,7 +27,11 @@ type Props = { onClose: () => void };
 
 async function callAdmin(action: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke('admin-users', { body: { action, payload } });
-  if (error) throw error;
+  if (error) {
+    let msg = error.message;
+    try { const b = await (error as any).context?.json?.(); if (b?.error) msg = b.error; } catch {}
+    throw new Error(msg);
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -103,7 +107,10 @@ export default function AdminPanel({ onClose }: Props) {
 
   async function handleSetPassword(user: User) {
     const edit = rowEdits[user.id];
-    if (!edit.pw) return;
+    if (!edit.pw) {
+      patchRow(user.id, { rowError: 'Skriv inn et passord først.' });
+      return;
+    }
     patchRow(user.id, { saving: true, rowError: null });
     try {
       await callAdmin('set_password', { id: user.id, password: edit.pw });
