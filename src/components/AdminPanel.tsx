@@ -21,6 +21,7 @@ type RowEdit = {
   showPw: boolean;
   saving: boolean;
   rowError: string | null;
+  rowOk: string | null;
 };
 
 type Props = { onClose: () => void };
@@ -42,7 +43,7 @@ export default function AdminPanel({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rowEdits, setRowEdits] = useState<Record<string, RowEdit>>({});
-  const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '', role: '', ra: '' });
+  const [newUser, setNewUser] = useState({ email: '', full_name: '', password: '', role: '', ra: '', sendInvite: false });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [selfId, setSelfId] = useState<string | null>(null);
@@ -74,6 +75,7 @@ export default function AdminPanel({ onClose }: Props) {
           showPw: false,
           saving: false,
           rowError: null,
+          rowOk: null,
         };
       }
       setRowEdits(edits);
@@ -91,7 +93,7 @@ export default function AdminPanel({ onClose }: Props) {
 
   async function handleSave(user: User) {
     const edit = rowEdits[user.id];
-    patchRow(user.id, { saving: true, rowError: null });
+    patchRow(user.id, { saving: true, rowError: null, rowOk: null });
     try {
       await callAdmin('update', {
         id: user.id,
@@ -115,7 +117,7 @@ export default function AdminPanel({ onClose }: Props) {
       patchRow(user.id, { rowError: 'Skriv inn et passord først.' });
       return;
     }
-    patchRow(user.id, { saving: true, rowError: null });
+    patchRow(user.id, { saving: true, rowError: null, rowOk: null });
     try {
       await callAdmin('set_password', { id: user.id, password: edit.pw });
       patchRow(user.id, { pw: '', showPw: false });
@@ -127,7 +129,7 @@ export default function AdminPanel({ onClose }: Props) {
   }
 
   async function handleSetActive(user: User, aktiv: boolean) {
-    patchRow(user.id, { saving: true, rowError: null });
+    patchRow(user.id, { saving: true, rowError: null, rowOk: null });
     try {
       await callAdmin('set_active', { id: user.id, aktiv });
       setUsers(prev => prev.map(u => u.id === user.id ? { ...u, aktiv } : u));
@@ -140,7 +142,7 @@ export default function AdminPanel({ onClose }: Props) {
 
   async function handleDelete(user: User) {
     if (!window.confirm(`Slette ${user.email}? Dette kan ikke angres.`)) return;
-    patchRow(user.id, { saving: true, rowError: null });
+    patchRow(user.id, { saving: true, rowError: null, rowOk: null });
     try {
       await callAdmin('delete', { id: user.id });
       await load();
@@ -149,22 +151,47 @@ export default function AdminPanel({ onClose }: Props) {
     }
   }
 
+  async function handleSendReset(user: User) {
+    patchRow(user.id, { saving: true, rowError: null, rowOk: null });
+    try {
+      await callAdmin('send_reset', { email: user.email });
+      patchRow(user.id, { rowOk: `Reset-lenke sendt til ${user.email}` });
+    } catch (e: any) {
+      patchRow(user.id, { rowError: e.message ?? String(e) });
+    } finally {
+      patchRow(user.id, { saving: false });
+    }
+  }
+
   async function handleCreate() {
-    if (!newUser.email || !newUser.password) {
-      setCreateError('E-post og passord er påkrevd.');
+    if (!newUser.email) {
+      setCreateError('E-post er påkrevd.');
+      return;
+    }
+    if (!newUser.sendInvite && !newUser.password) {
+      setCreateError('Passord er påkrevd.');
       return;
     }
     setCreating(true);
     setCreateError(null);
     try {
-      await callAdmin('create', {
-        email: newUser.email,
-        password: newUser.password,
-        full_name: newUser.full_name || null,
-        role: newUser.role || null,
-        ra: newUser.ra || null,
-      });
-      setNewUser(p => ({ email: '', full_name: '', password: '', role: p.role, ra: '' }));
+      if (newUser.sendInvite) {
+        await callAdmin('invite', {
+          email: newUser.email,
+          full_name: newUser.full_name || null,
+          role: newUser.role || null,
+          ra: newUser.ra || null,
+        });
+      } else {
+        await callAdmin('create', {
+          email: newUser.email,
+          password: newUser.password,
+          full_name: newUser.full_name || null,
+          role: newUser.role || null,
+          ra: newUser.ra || null,
+        });
+      }
+      setNewUser(p => ({ email: '', full_name: '', password: '', role: p.role, ra: '', sendInvite: p.sendInvite }));
       await load();
     } catch (e: any) {
       setCreateError(e.message ?? String(e));
@@ -216,13 +243,15 @@ export default function AdminPanel({ onClose }: Props) {
                   value={newUser.full_name}
                   onChange={e => setNewUser(p => ({ ...p, full_name: e.target.value }))}
                 />
-                <input
-                  className={inputCls}
-                  placeholder="Passord *"
-                  type="password"
-                  value={newUser.password}
-                  onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))}
-                />
+                {!newUser.sendInvite && (
+                  <input
+                    className={inputCls}
+                    placeholder="Passord *"
+                    type="password"
+                    value={newUser.password}
+                    onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))}
+                  />
+                )}
                 <select
                   className={inputCls}
                   value={newUser.role}
@@ -243,9 +272,18 @@ export default function AdminPanel({ onClose }: Props) {
                   disabled={creating}
                   className={`${btnSm} bg-blue-600 hover:bg-blue-700 text-white justify-center`}
                 >
-                  {creating ? 'Oppretter…' : 'Opprett bruker'}
+                  {creating ? 'Sender…' : newUser.sendInvite ? 'Send invitasjon' : 'Opprett bruker'}
                 </button>
               </div>
+              <label className="mt-3 flex items-center gap-2 text-xs text-gray-600 cursor-pointer w-fit select-none">
+                <input
+                  type="checkbox"
+                  checked={newUser.sendInvite}
+                  onChange={e => setNewUser(p => ({ ...p, sendInvite: e.target.checked, password: '' }))}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Send invitasjon (bruker setter passord selv)
+              </label>
             </div>
 
             {/* Global feilmelding */}
@@ -336,10 +374,17 @@ export default function AdminPanel({ onClose }: Props) {
                                   {edit.saving ? 'Lagrer…' : 'Lagre'}
                                 </button>
                                 <button
-                                  onClick={() => patchRow(user.id, { showPw: !edit.showPw })}
+                                  onClick={() => patchRow(user.id, { showPw: !edit.showPw, rowOk: null })}
                                   className={`${btnSm} border border-gray-200 hover:bg-gray-50 text-gray-600`}
                                 >
                                   Sett passord
+                                </button>
+                                <button
+                                  onClick={() => handleSendReset(user)}
+                                  disabled={edit.saving}
+                                  className={`${btnSm} border border-gray-200 hover:bg-gray-50 text-gray-600`}
+                                >
+                                  Send reset-lenke
                                 </button>
                                 {user.id !== selfId && (
                                   <button
@@ -372,6 +417,16 @@ export default function AdminPanel({ onClose }: Props) {
                                   >
                                     Bekreft
                                   </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+
+                          {edit.rowOk && (
+                            <tr>
+                              <td colSpan={7} className="pb-2 px-1">
+                                <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+                                  {edit.rowOk}
                                 </div>
                               </td>
                             </tr>
