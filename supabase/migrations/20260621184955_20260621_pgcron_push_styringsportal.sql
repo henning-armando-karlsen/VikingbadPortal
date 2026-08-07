@@ -8,7 +8,8 @@
 --    - Navn: push-til-styringsportal
 --    - Frekvens: hvert 10. minutt
 --    - Kaller edge-funksjonen push-til-styringsportal via net.http_post
---    - Ingen Authorization-header trengs (verify_jwt = false)
+--    - Leser prosjekt-URL og publiserbar noekkel fra Vault
+--    - Oppretter ikke jobben foer begge verdiene finnes i miljoet
 --
 -- 3. Idempotens: gammel jobb med samme navn avregistreres foerst
 
@@ -22,15 +23,41 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
--- Planlegg ny jobb hvert 10. minutt
-SELECT cron.schedule(
-  'push-til-styringsportal',
-  '*/10 * * * *',
-  $$
-  SELECT net.http_post(
-    url     := 'https://cdzlfszlvwibhufsmzkj.supabase.co/functions/v1/push-til-styringsportal',
-    body    := '{}'::jsonb,
-    headers := '{"Content-Type": "application/json"}'::jsonb
-  )
-  $$
-);
+-- Planlegg bare jobben i miljoer som har egne Vault-verdier.
+-- Dette hindrer preview-grener i aa kalle produksjonsprosjektet.
+DO $migration$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'project_url'
+  ) AND EXISTS (
+    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'publishable_key'
+  ) THEN
+    PERFORM cron.schedule(
+      'push-til-styringsportal',
+      '*/10 * * * *',
+      $job$
+      SELECT net.http_post(
+        url := (
+          SELECT decrypted_secret
+          FROM vault.decrypted_secrets
+          WHERE name = 'project_url'
+          LIMIT 1
+        ) || '/functions/v1/push-til-styringsportal',
+        body := '{}'::jsonb,
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'apikey', (
+            SELECT decrypted_secret
+            FROM vault.decrypted_secrets
+            WHERE name = 'publishable_key'
+            LIMIT 1
+          )
+        )
+      )
+      $job$
+    );
+  ELSE
+    RAISE NOTICE 'Skipping push-til-styringsportal: project_url or publishable_key is missing from Vault';
+  END IF;
+END
+$migration$;
